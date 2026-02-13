@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Item {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  priceCents  Int
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+}
+
+model Booking {
+  id           String   @id @default(cuid())
+  itemId       String
+  qty          Int      @default(1)
+  customerName String
+  phone        String
+  fulfillment  String
+  note         String?
+  createdAt    DateTime @default(now())
+  item         Item     @relation(fields: [itemId], references: [id])
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  ADMIN
+}
