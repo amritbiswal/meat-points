@@ -10,36 +10,64 @@ const UpdateItemSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const session = await getServerSession(authOptions);
   if (!session || (session as any).role !== "ADMIN") {
-    return Response.json({ error: { code: "UNAUTHORIZED", message: "Admin only" } }, { status: 401 });
+    return Response.json(
+      { error: { code: "UNAUTHORIZED", message: "Admin only" } },
+      { status: 401 },
+    );
   }
+
+  const { id } = await params;
 
   const body = await req.json().catch(() => null);
   const parsed = UpdateItemSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
-      { error: { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() } },
-      { status: 400 }
+      {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid input",
+          details: parsed.error.flatten(),
+        },
+      },
+      { status: 400 },
     );
   }
 
   const updated = await prisma.item.update({
-    where: { id: params.id },
+    where: { id },
     data: parsed.data,
-    select: { id: true, name: true, description: true, priceCents: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      priceCents: true,
+      isActive: true,
+    },
   });
 
   return Response.json({ item: updated });
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const session = await getServerSession(authOptions);
   if (!session || session.user?.role !== "ADMIN") {
-    return Response.json({ error: { code: "UNAUTHORIZED", message: "Admin only" } }, { status: 401 });
+    return Response.json(
+      { error: { code: "UNAUTHORIZED", message: "Admin only" } },
+      { status: 401 },
+    );
   }
 
-  await prisma.item.delete({ where: { id: params.id } });
+  const { id } = await params;
+
+  await prisma.item.delete({ where: { id } });
   return new Response(null, { status: 204 });
 }
