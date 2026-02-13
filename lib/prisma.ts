@@ -2,49 +2,28 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-const globalForPrisma = globalThis as unknown as {
+const globalForPrisma = globalThis as unknown as { 
   prisma?: PrismaClient;
-  pool?: Pool;
+  connectionString?: string;
 };
 
-// Get connection strings
-const accelerateUrl = process.env.PRISMA_DATABASE_URL;
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// Create connection pool
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-// Use direct connection in development, Accelerate in production
-const useAccelerate =
-  process.env.NODE_ENV === "production" &&
-  accelerateUrl?.startsWith("prisma+postgres://");
+if (!connectionString) {
+  throw new Error("DATABASE_URL or POSTGRES_URL environment variable is required");
+}
 
-let prismaClient: PrismaClient;
+// Create adapter
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 
-if (useAccelerate && accelerateUrl) {
-  // Use Accelerate URL for production/Vercel
-  prismaClient = new PrismaClient({
-    accelerateUrl: accelerateUrl,
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
-} else if (databaseUrl) {
-  // Use direct database connection with adapter for local dev
-  const pool =
-    globalForPrisma.pool ?? new Pool({ connectionString: databaseUrl });
-  const adapter = new PrismaPg(pool);
-
-  prismaClient = new PrismaClient({
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
-
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pool = pool;
-  }
-} else {
-  throw new Error(
-    "PRISMA_DATABASE_URL or DATABASE_URL environment variable is required",
-  );
-}
-
-export const prisma = globalForPrisma.prisma ?? prismaClient;
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
